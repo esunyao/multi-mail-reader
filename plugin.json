@@ -1,0 +1,22 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "multi-mail-reader",
+  "version": "0.1.0",
+  "description": "本地多邮箱收信插件。自定义 IMAP/SMTP，SSL/TLS 登录，按需查询正文和附件。",
+  "author": { "name": "Local Tools" },
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "多邮箱收信",
+        "shortDescription": "自定义邮箱，让 Codex 按需读信",
+        "longDescription": "在插件配置页管理多个邮箱，使用 SSL/TLS 连接 IMAP。Codex 可搜索邮件、读取正文和按需阅读附件。密码在本机加密保存，SMTP 配置供后续扩展。",
+        "developerName": "Local Tools",
+        "category": "Productivity",
+        "capabilities": ["Read", "Interactive"],
+        "logo": "./assets/mail.svg",
+        "composerIcon": "./assets/mail.svg",
+        "defaultPrompt": "查看我的邮箱，帮我查找并阅读邮件。"
+      }
+    }
+  }
+}

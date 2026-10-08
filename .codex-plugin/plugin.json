@@ -1,0 +1,19 @@
+{
+  "name": "multi-mail-reader",
+  "version": "0.1.0",
+  "description": "本地多邮箱收信：自定义 IMAP/SMTP、SSL/TLS 登录，按需查询正文和附件。",
+  "author": { "name": "Local Tools" },
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "多邮箱收信",
+    "shortDescription": "自定义邮箱，让 Codex 按需读信",
+    "longDescription": "在配置页管理多个邮箱，由 Codex 查询和阅读邮件。密码在 Windows 当前用户下加密保存。第一版仅收信，SMTP 配置供后续扩展。",
+    "developerName": "Local Tools",
+    "category": "Productivity",
+    "capabilities": ["Read", "Interactive"],
+    "logo": "./assets/mail.svg",
+    "composerIcon": "./assets/mail.svg",
+    "defaultPrompt": "查看我的邮箱，帮我查找并阅读邮件。"
+  }
+}

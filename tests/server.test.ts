@@ -1,0 +1,57 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StdioClientTransport, getDefaultEnvironment } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { account, testDirectory, testImap, compose } from './fixtures.js';
+
+test('packaged stdio server exposes read tools and app-only account settings', { timeout: 120000 }, async t => {
+  const directory = await testDirectory('mcp-');
+  const fixture = await testImap([await compose({ subject: 'Packaged server', text: 'Packaged TLS body', attachments: [{ filename: 'sample.txt', content: 'Packaged attachment content' }] })]);
+  const caPath = join(directory, 'test-ca.pem'); await writeFile(caPath, fixture.cert);
+  const transport = new StdioClientTransport({ command: process.execPath, args: [join(process.cwd(), 'dist', 'server.cjs'), '--data-dir', directory], stderr: 'pipe', env: { ...getDefaultEnvironment(), NODE_EXTRA_CA_CERTS: caPath } });
+  let stderr = ''; transport.stderr?.on('data', chunk => { stderr += chunk; });
+  const client = new Client({ name: 'mail-test-host', version: '1.0.0' }, { capabilities: {} });
+  t.after(async () => { await client.close(); await fixture.close(); });
+  await client.connect(transport);
+  const tools = (await client.listTools()).tools;
+  for (const name of ['list_accounts', 'list_folders', 'search_messages', 'read_message', 'read_attachment', 'manage_accounts']) assert.ok(tools.some(tool => tool.name === name));
+  for (const name of ['accounts_save', 'accounts_delete', 'accounts_default', 'accounts_test']) {
+    assert.deepEqual((tools.find(tool => tool.name === name)!._meta?.ui as any).visibility, ['app']);
+  }
+  const capabilities = client.getServerCapabilities() as any;
+  const settings = capabilities.extensions?.['openai/settings'] ?? capabilities.experimental?.['openai/settings'];
+  assert.ok(settings?.readTool && settings?.updateTool);
+  const readSettings = await client.callTool({ name: settings.readTool, arguments: {} });
+  assert.equal((readSettings.structuredContent as any).layout[0].items[0].tool, 'manage_accounts');
+  const opened = await client.callTool({ name: 'manage_accounts', arguments: {} });
+  assert.equal((opened.structuredContent as any).accountCount, 0);
+  const resource = await client.readResource({ uri: 'ui://multi-mail-reader/accounts.html' });
+  assert.ok((resource.contents[0] as any).text.includes('smtpEnabled'));
+  assert.deepEqual((resource.contents[0]._meta?.['openai/ui'] as any).availableDisplayModes, ['fullscreen']);
+  const secret = 'testpass';
+  const saved = await client.callTool({ name: 'accounts_save', arguments: { account: { ...account(fixture.port), imap: { ...account(fixture.port).imap, password: secret }, smtp: { host: 'smtp.example.com', port: 465, reuseImapCredentials: true } } } });
+  assert.ok(!saved.isError, JSON.stringify(saved));
+  const id = (saved.structuredContent as any).account.id;
+  const listed = await client.callTool({ name: 'list_accounts', arguments: {} });
+  assert.equal((listed.structuredContent as any).accounts[0].id, id);
+  assert.ok(!JSON.stringify(listed).includes(secret) && !JSON.stringify(listed).includes('passwordCipher'));
+  const stored = await readFile(join(directory, 'accounts.json'), 'utf8');
+  assert.ok(!stored.includes(secret));
+  const searched = await client.callTool({ name: 'search_messages', arguments: { unreadOnly: true } });
+  assert.ok(!searched.isError, JSON.stringify(searched));
+  const ref = (searched.structuredContent as any).messages[0].ref;
+  const message = await client.callTool({ name: 'read_message', arguments: { ref } });
+  assert.ok(!message.isError, JSON.stringify(message));
+  assert.match((message.structuredContent as any).body.text, /Packaged TLS body/);
+  const attachment = await client.callTool({ name: 'read_attachment', arguments: { ref, attachmentId: (message.structuredContent as any).attachments[0].attachmentId } });
+  assert.match((attachment.structuredContent as any).text.text, /Packaged attachment content/);
+  assert.equal(((await client.callTool({ name: 'search_messages', arguments: { unreadOnly: true } })).structuredContent as any).total, 1);
+  const invalid = await client.callTool({ name: 'read_message', arguments: { ref: 'invalid' } });
+  assert.ok(invalid.isError);
+  const deleted = await client.callTool({ name: 'accounts_delete', arguments: { id } });
+  assert.equal((deleted.structuredContent as any).accounts.length, 0);
+  assert.ok(!stderr.includes(secret));
+});
