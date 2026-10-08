@@ -1,0 +1,12 @@
+{
+  "name": "multi-mail-reader",
+  "interface": { "displayName": "多邮箱收信" },
+  "plugins": [
+    {
+      "name": "multi-mail-reader",
+      "source": { "source": "local", "path": "./" },
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
+      "category": "Productivity"
+    }
+  ]
+}

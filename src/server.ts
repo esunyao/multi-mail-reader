@@ -9,12 +9,13 @@ import { AccountStore } from './store.js';
 import { MailService } from './mail.js';
 import { AttachmentReader } from './attachments.js';
 import { accountInput } from './types.js';
+import packageInfo from '../package.json' with { type: 'json' };
 
 const dataArgument = process.argv.indexOf('--data-dir');
 const store = new AccountStore(dataArgument >= 0 ? process.argv[dataArgument + 1] : undefined);
 const mail = new MailService(store);
 const attachments = new AttachmentReader(mail, store.directory, join(__dirname, 'extract-worker.cjs'));
-const server = new McpServer({ name: 'multi-mail-reader', version: '0.1.0', title: '多邮箱收信' });
+const server = new McpServer({ name: 'multi-mail-reader', version: packageInfo.version, title: '多邮箱收信' });
 const extensions = new OpenAIExtensions(server);
 const SETTINGS_URI = 'ui://multi-mail-reader/accounts.html';
 const readOnly = { readOnlyHint: true, destructiveHint: false, openWorldHint: true };

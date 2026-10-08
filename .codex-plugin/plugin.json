@@ -1,6 +1,6 @@
 {
   "name": "multi-mail-reader",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "本地多邮箱收信：自定义 IMAP/SMTP、SSL/TLS 登录，按需查询正文和附件。",
   "author": { "name": "Local Tools" },
   "skills": "./skills/",

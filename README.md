@@ -25,39 +25,58 @@
 | 操作系统 | Windows，当前版本依赖 Windows DPAPI |
 | Codex | 支持本地插件的 Codex 桌面端，以及可用的 Codex CLI |
 | Node.js | 22 或更新版本，`node` 可从命令行启动 |
+| npm 与网络 | 首次启动需要可用的 npm，以及访问锁文件中依赖下载地址的网络 |
 | PowerShell | Windows PowerShell 5.1 可用，用于凭据加解密及安装 |
 | 邮箱 | 已开启 IMAP，支持直接 SSL/TLS 和密码或邮箱授权码登录 |
 
-### 从源码安装
+### 通过 Git 远程市场安装
 
-Git 仓库仅保留源码、依赖声明和锁文件，**不提交 `dist` 或任何 `node_modules` 目录**。克隆仓库或下载 GitHub 自动生成的源码 ZIP 后，需要先安装依赖并构建。
-
-1. 将源码放在固定目录，在仓库根目录打开 Git Bash。
-2. 依次运行：
+在 Git Bash 中运行：
 
 ```bash
-npm ci
-npm run check
-npm run build
+codex plugin marketplace add https://github.com/esunyao/multi-mail-reader --ref main
+codex plugin add multi-mail-reader@multi-mail-reader
+```
+
+重新加载 Codex，在新对话中选择“多邮箱收信”，再从插件配置页打开“管理邮箱”。插件市场与源码位于同一 Git 仓库；项目通过 Git 分发，不发布 GitHub Release。
+
+Git 仓库**不提交 `dist` 或任何 `node_modules` 目录**。首次启动时，插件将所需源码复制到独立缓存，安装锁定依赖并构建服务。这个过程需要 Node.js、npm 和网络，最长等待约 9 分钟；Codex 原生启动等待设为 10 分钟。准备完成后直接复用缓存，正常启动无需再次安装依赖或联网构建。
+
+更新市场后重新安装插件，使更新后的源码进入安装缓存：
+
+```bash
+codex plugin marketplace upgrade multi-mail-reader
+codex plugin add multi-mail-reader@multi-mail-reader
+```
+
+重新加载 Codex 后，新源码会选择新的运行缓存，邮箱配置继续沿用。
+
+### 本地源码安装
+
+本地开发或使用源码 ZIP 时，在插件根目录运行：
+
+```bash
 node scripts/install.mjs
 ```
 
-3. 安装完成后重新加载 Codex，在插件列表中启用或选择“多邮箱收信”。
-4. 打开插件配置页，点击“管理邮箱”，添加自己的邮箱。
+此脚本创建同级的 `multi-mail-local-marketplace`，注册本地市场并安装 `multi-mail-reader@multi-mail-local`。本地安装也使用首次启动自动构建，不必先在源码目录生成依赖或 `dist`。请保留本地市场目录，它是这种安装方式的来源。
 
-安装脚本会在插件目录的同级创建 `multi-mail-local-marketplace`，并通过 Codex CLI 注册本地市场、安装 `multi-mail-reader@multi-mail-local`。请保留该市场目录；它是本地安装源。脚本不会替换已有邮箱数据。
+### 运行缓存与重试
 
-本仓库是插件源码仓库，安装入口为上述脚本，不是远程插件市场地址。如果当前对话尚未发现工具，重新加载 Codex 后在新对话中选择插件。
+运行缓存位于 `%LOCALAPPDATA%\Codex\multi-mail-reader-runtime`，与邮箱数据目录分开。缓存按源码、依赖锁文件、Node.js 主版本、操作系统和处理器架构区分；使用前会校验构建文件的完整性。
 
-### 从已构建的插件 ZIP 安装
+- 同时打开多个对话时，同一份源码只构建一次，其余启动等待构建完成。
+- 准备失败、超时或中断时，不会启用半成品。检查 npm 和网络后，重新加载 Codex 或重试启动。
+- 文件缺失或损坏时自动重新构建。清理缓存前请先关闭正在使用插件的对话，只清理 `multi-mail-reader-runtime`，不要删除存放邮箱数据的 `multi-mail-reader` 目录。
+- 构建期间的输出写入诊断日志，不混入邮件工具的通信结果。依赖安装禁用生命周期脚本；构建完成后移除开发依赖，只保留运行所需文件。
 
-如果获得的是通过 `npm run package` 生成的 `multi-mail-reader.zip`，解压后进入其中的插件根目录，运行：
+也可以在源码根目录提前准备缓存，便于排查首次启动问题：
 
 ```bash
-node scripts/install.mjs
+node scripts/start.mjs --prepare
 ```
 
-这种插件 ZIP 包含 `dist` 构建产物和必要运行依赖，无须先安装 npm 依赖。它与 GitHub 自动生成的源码 ZIP 不同；源码 ZIP 仍需按上一节构建。
+配置 `MULTI_MAIL_RUNTIME_DIR` 环境变量可指定独立运行缓存位置，供测试或受限环境使用。此变量不会改变邮箱数据目录。
 
 ## 配置邮箱
 
@@ -172,9 +191,11 @@ npm run package
 
 `npm run package` 在仓库的父目录生成 `multi-mail-reader.zip`。打包排除 `.git`、根目录开发依赖、测试数据、环境文件和日志，保留 `dist` 下的必要运行依赖。不要将真实邮箱数据复制进源码目录。
 
-Git 源码与可安装发布包采用不同范围：`node_modules` 和 `dist` 由 `.gitignore` 排除，但发布包必须包含构建好的服务及运行依赖。不要直接把 Git 源码 ZIP 当作可安装插件包。
+`node_modules` 和 `dist` 由 `.gitignore` 排除。本地 ZIP 打包仍可保留构建产物供开发验证，安装后的启动入口统一使用独立运行缓存；打包不会创建 GitHub Release。
 
-修改 `src` 或 `ui` 后，需要重新执行 `npm run build`，再安装或打包；只修改源码不会更新已安装插件。第三方许可文件由构建脚本重新生成，发布时应随包保留。
+修改 `src` 或 `ui` 后，开发测试需要重新执行 `npm run build`。已安装插件使用安装时的源码副本，需要更新市场并重新安装；只修改工作目录中的源码不会更新已安装插件。第三方许可文件由构建脚本重新生成，打包时应保留。
+
+`npm test` 包含一次纯源码冷启动验证，需要 npm 和依赖下载网络；测试的运行缓存和邮箱数据均使用隔离目录。仅校验源码清单和编码、不要求工作目录存在 `dist` 时，可运行 `node scripts/validate.mjs --source-only`。
 
 界面测试需要已安装 Google Chrome，在构建后运行：
 
@@ -184,7 +205,8 @@ npm run test:ui
 
 ```text
 multi-mail-reader/
-├── .codex-plugin/     Codex 兼容插件清单
+├── .agents/plugins/   Git 插件市场清单
+├── .codex-plugin/     Codex 原生插件清单
 ├── assets/            邮箱图标
 ├── dist/              本地构建生成，不提交 Git
 ├── scripts/           构建、安装、打包和验证脚本
@@ -192,7 +214,7 @@ multi-mail-reader/
 ├── src/               TypeScript MCP 服务及邮件处理
 ├── tests/             配置、TLS IMAP、正文和附件测试
 ├── ui/                中文邮箱管理界面
-├── plugin.json        插件清单
+├── .mcp.json          Codex 原生启动声明，等待 600 秒
 └── mcp.json           MCP 服务配置
 ```
 
@@ -210,9 +232,13 @@ multi-mail-reader/
 
 确认 Git Bash 中的 `node --version` 与 `codex --version` 能正常运行。安装脚本还需要能通过 Windows PowerShell 调用 `codex.cmd`，仅在某个终端内定义的别名不够。
 
-### 提示找不到 dist/server.cjs 或模块
+### 首次启动提示准备失败或长时间等待
 
-如果下载的是源码，请在仓库根目录先运行 `npm ci` 和 `npm run build`。仅创建空的 `dist` 目录不能解决问题；构建会生成服务、配置界面、附件解析线程及必要运行依赖。
+确认 `node --version` 不低于 22，`npm --version` 可用，网络可以下载依赖。运行 `node scripts/start.mjs --prepare` 查看准备过程，完成后重新加载 Codex。无需在源码目录手动创建 `dist`。
+
+Codex 原生声明包含 600 秒启动等待；其他通用 MCP 客户端需要在其自身设置中调整首次启动等待，或先执行上述准备命令。
+
+本仓库使用 `.codex-plugin/plugin.json` 作为 Codex 插件清单，不同时放置根目录 `plugin.json`。当前桌面版优先选择根目录通用清单，而通用 MCP 格式不支持启动超时字段；同时放置会使原生声明的 600 秒设置失效。`mcp.json` 仍保留标准格式，可供其他 MCP 客户端配置服务；它本身不是跨宿主插件安装包。
 
 ### IMAP 登录失败
 
