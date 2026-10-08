@@ -1,5 +1,7 @@
 # 多邮箱收信
 
+> **Vibe Coding 提醒**：本项目采用 AI 辅助开发，不应视为已经通过专业安全审计或生产环境验证。它会接触邮箱凭据、邮件和附件，请在使用前审查代码，先用测试邮箱验证，不要未经评估就接入含有敏感信息的重要邮箱。已完成的测试及验证边界见 [验证记录](VERIFICATION.md)。
+
 面向 Codex 的 Windows 本地邮箱插件。自定义 IMAP 服务器，在配置界面管理多个邮箱，让 Codex 按需查找邮件、阅读正文和附件。
 
 **第一版仅收信，不发送邮件，也不修改服务器上的已读状态。** SMTP 配置可以保存，供后续扩展使用。
@@ -26,23 +28,36 @@
 | PowerShell | Windows PowerShell 5.1 可用，用于凭据加解密及安装 |
 | 邮箱 | 已开启 IMAP，支持直接 SSL/TLS 和密码或邮箱授权码登录 |
 
-### 安装步骤
+### 从源码安装
 
-1. 克隆本仓库，或解压插件 ZIP，将插件目录放在固定位置。
-2. 在插件根目录打开 Git Bash，运行：
+Git 仓库仅保留源码、依赖声明和锁文件，**不提交 `dist` 或任何 `node_modules` 目录**。克隆仓库或下载 GitHub 自动生成的源码 ZIP 后，需要先安装依赖并构建。
+
+1. 将源码放在固定目录，在仓库根目录打开 Git Bash。
+2. 依次运行：
 
 ```bash
+npm ci
+npm run check
+npm run build
 node scripts/install.mjs
 ```
 
 3. 安装完成后重新加载 Codex，在插件列表中启用或选择“多邮箱收信”。
 4. 打开插件配置页，点击“管理邮箱”，添加自己的邮箱。
 
-仓库与插件 ZIP 均包含 `dist` 构建产物及必要运行依赖。仅安装使用时，无须运行 `npm install` 或重新构建。
-
 安装脚本会在插件目录的同级创建 `multi-mail-local-marketplace`，并通过 Codex CLI 注册本地市场、安装 `multi-mail-reader@multi-mail-local`。请保留该市场目录；它是本地安装源。脚本不会替换已有邮箱数据。
 
 本仓库是插件源码仓库，安装入口为上述脚本，不是远程插件市场地址。如果当前对话尚未发现工具，重新加载 Codex 后在新对话中选择插件。
+
+### 从已构建的插件 ZIP 安装
+
+如果获得的是通过 `npm run package` 生成的 `multi-mail-reader.zip`，解压后进入其中的插件根目录，运行：
+
+```bash
+node scripts/install.mjs
+```
+
+这种插件 ZIP 包含 `dist` 构建产物和必要运行依赖，无须先安装 npm 依赖。它与 GitHub 自动生成的源码 ZIP 不同；源码 ZIP 仍需按上一节构建。
 
 ## 配置邮箱
 
@@ -157,6 +172,10 @@ npm run package
 
 `npm run package` 在仓库的父目录生成 `multi-mail-reader.zip`。打包排除 `.git`、根目录开发依赖、测试数据、环境文件和日志，保留 `dist` 下的必要运行依赖。不要将真实邮箱数据复制进源码目录。
 
+Git 源码与可安装发布包采用不同范围：`node_modules` 和 `dist` 由 `.gitignore` 排除，但发布包必须包含构建好的服务及运行依赖。不要直接把 Git 源码 ZIP 当作可安装插件包。
+
+修改 `src` 或 `ui` 后，需要重新执行 `npm run build`，再安装或打包；只修改源码不会更新已安装插件。第三方许可文件由构建脚本重新生成，发布时应随包保留。
+
 界面测试需要已安装 Google Chrome，在构建后运行：
 
 ```bash
@@ -167,7 +186,7 @@ npm run test:ui
 multi-mail-reader/
 ├── .codex-plugin/     Codex 兼容插件清单
 ├── assets/            邮箱图标
-├── dist/              可直接运行的服务、解析线程和配置界面
+├── dist/              本地构建生成，不提交 Git
 ├── scripts/           构建、安装、打包和验证脚本
 ├── skills/read-mail/  Codex 查信与安全处理指导
 ├── src/               TypeScript MCP 服务及邮件处理
@@ -190,6 +209,10 @@ multi-mail-reader/
 ### 安装提示找不到 Node.js 或 Codex
 
 确认 Git Bash 中的 `node --version` 与 `codex --version` 能正常运行。安装脚本还需要能通过 Windows PowerShell 调用 `codex.cmd`，仅在某个终端内定义的别名不够。
+
+### 提示找不到 dist/server.cjs 或模块
+
+如果下载的是源码，请在仓库根目录先运行 `npm ci` 和 `npm run build`。仅创建空的 `dist` 目录不能解决问题；构建会生成服务、配置界面、附件解析线程及必要运行依赖。
 
 ### IMAP 登录失败
 
