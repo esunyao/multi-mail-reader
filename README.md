@@ -26,19 +26,59 @@
 | Codex | 支持本地插件的 Codex 桌面端，以及可用的 Codex CLI |
 | Node.js | 22 或更新版本，`node` 可从命令行启动 |
 | npm 与网络 | 首次启动需要可用的 npm，以及访问锁文件中依赖下载地址的网络 |
+| Git | 通过 Git 远程市场安装时需要可用的 Git |
 | PowerShell | Windows PowerShell 5.1 可用，用于凭据加解密及安装 |
 | 邮箱 | 已开启 IMAP，支持直接 SSL/TLS 和密码或邮箱授权码登录 |
 
-### 通过 Git 远程市场安装
+### 让 Codex 导入：安装 Prompt
 
-在 Git Bash 中运行：
+在 Windows 上打开一个可以执行本机命令的 Codex 对话，发送以下提示词。执行过程中若出现权限确认，请先核对操作范围；此提示词不适用于无法运行本地进程的网页对话。
+
+```text
+请将 https://github.com/esunyao/multi-mail-reader 的 main 分支作为 Git 插件市场添加到当前 Codex，并安装、启用 multi-mail-reader@multi-mail-reader。
+
+先检查 Node.js 22 或更新版本、npm、Git 和 Codex CLI 是否可用，然后检查是否已添加同名市场或安装插件。新安装使用：
+codex plugin marketplace add https://github.com/esunyao/multi-mail-reader --ref main
+codex plugin add multi-mail-reader@multi-mail-reader
+
+若同名市场已指向该仓库，先升级市场再安装；若指向其他来源，请说明冲突并询问我，不要直接覆盖或删除。仅安装此插件，不改动其他插件。
+通过 Git 分发，不创建 GitHub Release，不将 dist 或 node_modules 提交到仓库，也不要手动修改插件安装缓存。保留已有邮箱配置、加密密码和附件。
+首次启动应自动在独立运行缓存中安装锁定依赖并构建；请等待完成，确认安装版本、启用状态、邮件工具发现及“管理邮箱”配置入口。验证只调用邮箱列表和配置入口，不读取邮件正文或附件，也不在聊天或日志中输出凭据。
+不要向我索取邮箱密码或授权码；这些只在插件配置表单中输入。如果需要重新加载 Codex，请明确告诉我。安装失败时报告实际原因和未完成的步骤，不要声称安装成功。
+```
+
+### 手动导入：Git 远程市场
+
+以下步骤由你在本机终端中执行，无需让 Codex 代为操作。命令示例使用 Git Bash。
+
+1. 检查环境。Node.js 版本需为 `22` 或更新版本，其余命令应能正常显示版本；若提示找不到命令，先安装或修复对应程序，再重新打开终端及 Codex。
+
+```bash
+node --version
+npm --version
+git --version
+codex --version
+```
+
+2. 添加 Git 市场，再安装插件。只添加市场不会自动安装插件。
 
 ```bash
 codex plugin marketplace add https://github.com/esunyao/multi-mail-reader --ref main
 codex plugin add multi-mail-reader@multi-mail-reader
 ```
 
-重新加载 Codex，在新对话中选择“多邮箱收信”，再从插件配置页打开“管理邮箱”。插件市场与源码位于同一 Git 仓库；项目通过 Git 分发，不发布 GitHub Release。
+3. 检查安装结果。
+
+```bash
+codex plugin marketplace list --json
+codex plugin list --marketplace multi-mail-reader --json
+```
+
+市场列表应包含 `multi-mail-reader`，来源为该 GitHub 仓库；插件列表应包含 `multi-mail-reader@multi-mail-reader`，且 `installed`、`enabled` 均为 `true`。若同名市场已经添加且来源一致，按下方更新步骤操作；来源不同时先核对已有市场，不要直接删除。
+
+4. 重新加载 Codex，在新对话中选择“多邮箱收信”，等待首次准备完成，再从插件配置页打开“管理邮箱”。没有显示配置入口时，可以对 Codex 说“打开邮箱配置”。邮箱密码或授权码只在表单中填写，不要输入终端或聊天。
+
+插件市场与源码位于同一 Git 仓库；项目通过 Git 分发，不发布 GitHub Release。
 
 Git 仓库**不提交 `dist` 或任何 `node_modules` 目录**。首次启动时，插件将所需源码复制到独立缓存，安装锁定依赖并构建服务。这个过程需要 Node.js、npm 和网络，最长等待约 9 分钟；Codex 原生启动等待设为 10 分钟。准备完成后直接复用缓存，正常启动无需再次安装依赖或联网构建。
 
@@ -51,15 +91,27 @@ codex plugin add multi-mail-reader@multi-mail-reader
 
 重新加载 Codex 后，新源码会选择新的运行缓存，邮箱配置继续沿用。
 
-### 本地源码安装
+### 手动导入：本地源码或源码 ZIP
 
-本地开发或使用源码 ZIP 时，在插件根目录运行：
+这是远程 Git 市场安装的替代方式，适合本地开发或已经下载源码的情况。下载 ZIP 本身不会安装插件，也不应将源码 ZIP 当作已构建的插件包直接导入。
+
+1. 在[源码仓库](https://github.com/esunyao/multi-mail-reader)页面选择 **Code → Download ZIP** 并解压，或使用已有的 Git 克隆目录。这里下载的是源码，不需要 GitHub Release。
+2. 打开解压后的插件根目录，确认其中有 `package.json`、`scripts/install.mjs`、`.codex-plugin` 和 `.agents/plugins/marketplace.json`。注意不要停留在包含这些文件的上一级目录。
+3. 在该目录打开终端，运行本地安装脚本。无需提前执行 `npm ci` 或生成 `dist`。
 
 ```bash
 node scripts/install.mjs
 ```
 
-此脚本创建同级的 `multi-mail-local-marketplace`，注册本地市场并安装 `multi-mail-reader@multi-mail-local`。本地安装也使用首次启动自动构建，不必先在源码目录生成依赖或 `dist`。请保留本地市场目录，它是这种安装方式的来源。
+4. 检查本地安装状态，然后重新加载 Codex，选择插件并打开“管理邮箱”。
+
+```bash
+codex plugin list --marketplace multi-mail-local --json
+```
+
+此脚本创建同级的 `multi-mail-local-marketplace`，注册本地市场并安装 `multi-mail-reader@multi-mail-local`。本地安装同样使用首次启动自动构建，首次仍需要 npm 和网络；源码 ZIP 并不提供离线安装能力。请保留本地市场目录，它是这种安装方式的来源。
+
+远程方式的标识是 `multi-mail-reader@multi-mail-reader`，本地方式的标识是 `multi-mail-reader@multi-mail-local`。两种方式选择一种即可；已经安装远程版本时，不要再启用本地副本，以免重复加载同名邮件服务。
 
 ### 运行缓存与重试
 
